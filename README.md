@@ -9,8 +9,6 @@ Acest proiect conține următoarele pagini principale:
 * **Întrebări frecvente (FAQ):** Răspunsuri la cele mai comune curiozități ale clienților noștri.
 * **Termeni și condiții:** Detaliile legale privind utilizarea magazinului online.
 
-## Structura folderelor (Static și Templates)
-
 ## Structura Proiectului
 
 Proiectul este construit folosind framework-ul Django și respectă o arhitectură standard, fiind structurat astfel:
