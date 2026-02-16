@@ -1,12 +1,20 @@
+# Proiect E-Commerce Django
+
+## Tema Proiectului: Magazin Online de Încălțăminte
+
+Acest proiect reprezintă o platformă web interactivă dedicată comercializării de încălțăminte. Scopul principal al aplicației este de a oferi utilizatorilor o experiență de navigare intuitivă, permițându-le să exploreze un catalog diversificat de produse (pantofi sport, eleganți, etc.), să afle informații despre istoricul și echipa magazinului, dar și să interacționeze cu funcționalități specifice precum coșul virtual și paginile de contact. La nivel tehnic, backend-ul este construit robust folosind framework-ul Python Django, incluzând un sistem personalizat de logare și monitorizare a accesărilor pentru fiecare pagină a site-ului.
+
+---
+
 ## Conținut
 Acest proiect conține următoarele pagini principale:
 
-* **Prima pagină (Index):** Pagina de destinație a magazinului de încălțăminte. Conține prezentarea proiectului, categoriile de bază și ofertele curente.
+* **Prima pagină (Acasă):** Pagina principală a magazinului. Conține descrierea proiectului, categoriile principale de produse și ofertele curente.
 * **Despre noi:** O scurtă istorie a magazinului nostru și detalii despre echipa din spate.
 * **Produse:** Catalogul complet unde vizitatorii pot vizualiza încălțămintea disponibilă.
 * **Contact:** Formularul și datele de contact pentru suport clienți.
 * **Coș virtual:** Secțiunea unde utilizatorii își pot revizui produsele adăugate înainte de finalizarea comenzii.
-* **Întrebări frecvente (FAQ):** Răspunsuri la cele mai comune curiozități ale clienților noștri.
+* **FAQ (Întrebări frecvente):** Răspunsuri la cele mai comune curiozități ale clienților noștri.
 * **Termeni și condiții:** Detaliile legale privind utilizarea magazinului online.
 
 ## Structura Proiectului
