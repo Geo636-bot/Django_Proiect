@@ -1,4 +1,5 @@
 import datetime
+import random
 from collections import Counter
 from django.http import HttpResponse
 
