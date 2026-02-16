@@ -11,17 +11,44 @@ Acest proiect conține următoarele pagini principale:
 
 ## Structura folderelor (Static și Templates)
 
-Magazin_Incaltaminte/
-├── static/
-│   ├── css/
-│   │   └── style.css
-│   └── imagini/
-│       ├── incaltaminte.jpg
-│       └── echipa.jpg
-├── templates/
-│   ├── baza.html
-│   ├── index.html
-│   ├── despre.html
-│   ├── in_lucru.html
-│   ├── info.html
-│   └── log.html
+## Structura Proiectului
+
+Proiectul este construit folosind framework-ul Django și respectă o arhitectură standard, fiind structurat astfel:
+
+```text
+DJANGO_PROIECT/
+└── Magazin_Incaltaminte/                 # Folderul rădăcină al proiectului
+    ├── manage.py                         # Utilitarul de command-line Django
+    ├── README.md                         # Documentația proiectului
+    │
+    ├── Magazin_Incaltaminte/             # Pachetul de configurare al proiectului
+    │   ├── __init__.py
+    │   ├── asgi.py
+    │   ├── settings.py                   # Setările globale (inclusiv configurarea static/templates)
+    │   ├── urls.py                       # Rutarea principală a proiectului
+    │   └── wsgi.py
+    │
+    └── Catalog_Produse/                  # Aplicația principală a magazinului
+        ├── migrations/                   # Fisierele pentru migrarea bazei de date
+        ├── __init__.py
+        ├── admin.py                      # Configurarea interfeței de administrare
+        ├── apps.py
+        ├── models.py                     # Definirea structurii bazei de date (Modele)
+        ├── tests.py                      # Teste unitare
+        ├── urls.py                       # Rutele specifice aplicației
+        ├── views.py                      # Logica din spate (funcțiile care randează paginile)
+        │
+        ├── static/                       # Fișiere statice (CSS, JavaScript, Imagini)
+        │   ├── css/
+        │   │   └── style.css             # Fișierul CSS pentru design (inclusiv meniul derulant)
+        │   └── imagini/
+        │       ├── incaltaminte.jpg      # Imagine pentru prima pagină
+        │       └── echipa.jpg            # Imagine pentru pagina Despre Noi
+        │
+        └── templates/                    # Șabloanele HTML
+            ├── baza.html                 # Template-ul de bază (Header, Footer, Meniu)
+            ├── index.html                # Prima pagină (Acasă)
+            ├── despre.html               # Pagina Despre Noi
+            ├── in_lucru.html             # Pagina generică pentru secțiunile nefinalizate
+            ├── info.html                 # Pagina cu detalii despre server și request curent
+            └── log.html                  # Pagina cu istoricul de accesări
