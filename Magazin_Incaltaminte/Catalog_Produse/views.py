@@ -1,5 +1,5 @@
 import datetime
-import random
+from django.shortcuts import render
 from collections import Counter
 from django.http import HttpResponse
 
@@ -14,6 +14,23 @@ ZILE_SAPTAMANA = [
 ]
 LISTA_ACCESARI = []
 ID_COUNTER = 0
+
+def index(request):
+    acces = Accesare(request)
+    context = {
+        'descriere_proiect': DESCRIERE_PROIECT,
+        'ip_utilizator': acces.ip_client
+    }
+    return render(request, 'index.html', context)
+
+def despre(request):
+    acces = Accesare(request)
+    return render(request, 'despre.html', {'ip_utilizator': acces.ip_client})
+
+def in_lucru_view(request):
+    acces = Accesare(request)
+    return render(request, 'in_lucru.html', {'ip_utilizator': acces.ip_client})
+
 
 def get_ip(request):
     """Obține adresa IP reală a clientului."""

@@ -1,0 +1,13 @@
+{% extends 'baza.html' %}
+{% load static %}
+{% block titlu %}Despre Noi{% endblock %}
+{% block continut %}
+    <section id="poveste">
+        <h2>Povestea Noastră</h2>
+        <p>Am deschis acest magazin din pasiune.</p>
+    </section>
+    <section id="echipa">
+        <h2>Echipa</h2>
+        <img src="{% static 'imagini/echipa.jpg' %}" alt="Echipa" width="300">
+    </section>
+{% endblock %}
