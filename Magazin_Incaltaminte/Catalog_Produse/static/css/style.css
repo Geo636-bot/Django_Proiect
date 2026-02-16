@@ -35,7 +35,7 @@ nav ul.menu>li>a:hover {
     border-radius: 5px;
 }
 
-/* Submeniul Derulant (Dropdown) */
+
 ul.dropdown-content {
     display: none;
     position: absolute;

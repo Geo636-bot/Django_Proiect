@@ -16,11 +16,12 @@ LISTA_ACCESARI = []
 ID_COUNTER = 0
 
 def index(request):
-    acces = Accesare(request)
+    acces = Accesare(request) 
     context = {
-        'descriere_proiect': DESCRIERE_PROIECT,
+        'descriere_proiect': "Acest proiect implementează un magazin online de încălțăminte.",
         'ip_utilizator': acces.ip_client
     }
+    # Returnăm template-ul index.html
     return render(request, 'index.html', context)
 
 def despre(request):
@@ -120,10 +121,7 @@ DESCRIERE_PROIECT = (
     "Obiectivul principal este de a oferi o platformă de e-commerce funcțională."
 )
 
-def index(request):
-    """Rădăcina aplicației. Afișează descrierea proiectului și înregistrează accesarea."""
-    Accesare(request) # <--- Am adăugat această linie
-    return HttpResponse(DESCRIERE_PROIECT)
+
 
 
 def info(request):
