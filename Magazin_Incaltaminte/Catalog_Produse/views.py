@@ -1,6 +1,8 @@
 import datetime
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404
 from collections import Counter
+from django.core.paginator import Paginator
+from .models import Produs, Categorie
 from django.http import HttpResponse
 
 LUNI = [
@@ -384,3 +386,81 @@ def log(request):
     """
     
     return HttpResponse(response_html)
+
+def produse_view(request):
+    """Afișează toate produsele cu paginare și sortare."""
+    
+    # 1. Preluăm parametrul de sortare din URL (ex: ?sort=a)
+    sort_param = request.GET.get('sort')
+    
+    # 2. Începem cu toate produsele
+    lista_produse = Produs.objects.all()
+    
+    # 3. Aplicăm sortarea în funcție de parametrul primit
+    if sort_param == 'a':
+        lista_produse = lista_produse.order_by('pret')      # Crescător (Ascendent)
+    elif sort_param == 'd':
+        lista_produse = lista_produse.order_by('-pret')     # Descrescător (Descendent)
+    else:
+        lista_produse = lista_produse.order_by('-data_adaugarii') # Implicit (Cele mai noi primele)
+        sort_param = '' # Resetăm pentru a nu avea erori în template
+        
+    # 4. Paginarea (5 produse pe pagină)
+    paginator = Paginator(lista_produse, 5)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Trimitem și sort_param în context pentru a-l folosi la butoanele din HTML
+    context = {
+        'page_obj': page_obj,
+        'sort_param': sort_param
+    }
+    return render(request, 'produse.html', context)
+
+
+def produs_detaliu(request, id_produs):
+    """Afișează detaliile unui singur produs."""
+    try:
+        # Încercăm să găsim produsul cu ID-ul cerut în URL
+        produs_cerut = Produs.objects.get(id_incaltaminte=id_produs)
+        
+        # Dacă îl găsește, randează pagina produsului
+        return render(request, 'produs.html', {'produs': produs_cerut})
+        
+    except Produs.DoesNotExist:
+        # Dacă produsul nu există în baza de date, afișăm pagina de eroare
+        return render(request, 'eroare.html', status=404)
+    
+from django.shortcuts import render, get_object_or_404
+# ... restul importurilor tale
+
+def categorie_view(request, nume_categorie):
+    
+    # 1. Găsim categoria pe baza numelui din URL (sau dăm eroare 404 dacă nu există)
+    categorie_curenta = get_object_or_404(Categorie, nume_categorie=nume_categorie)
+    
+    # 2. Filtrăm produsele CA SĂ LE AFIȘĂM DOAR PE CELE DIN ACEASTĂ CATEGORIE
+    lista_produse = Produs.objects.filter(categorie=categorie_curenta)
+    
+    # 3. Păstrăm funcționalitatea de sortare (opțional, dar recomandat)
+    sort_param = request.GET.get('sort')
+    if sort_param == 'a':
+        lista_produse = lista_produse.order_by('pret')
+    elif sort_param == 'd':
+        lista_produse = lista_produse.order_by('-pret')
+    else:
+        lista_produse = lista_produse.order_by('-data_adaugarii')
+        sort_param = ''
+        
+    # 4. Paginarea (5 pe pagină)
+    paginator = Paginator(lista_produse, 5)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+    
+    # Trimitem categoria curentă în context pentru a-i afișa detaliile în template
+    context = {
+        'categorie_curenta': categorie_curenta,
+        'page_obj': page_obj,
+        'sort_param': sort_param
+    }
+    return render(request, 'produse.html', context) # REFOLOSIM TEMPLATE-UL!

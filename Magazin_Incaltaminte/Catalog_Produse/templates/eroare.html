@@ -1,0 +1,15 @@
+{% extends 'baza.html' %}
+
+{% block titlu %}Eroare 404 - Produs Inexistent{% endblock %}
+
+{% block continut %}
+    <div style="text-align: center; margin-top: 60px; margin-bottom: 60px;">
+        <h1 style="color: #CC3300; font-size: 4em; margin-bottom: 10px;">Ups!</h1>
+        <h2>Produsul pe care îl cauți nu există sau a fost șters.</h2>
+        <p style="color: #666; margin-bottom: 30px;">Este posibil ca linkul să fie greșit sau produsul să nu mai facă parte din oferta noastră.</p>
+        
+        <a href="{% url 'produse' %}" style="padding: 12px 25px; background-color: #333; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;">
+            &laquo; Întoarce-te la Catalogul de Produse
+        </a>
+    </div>
+{% endblock %}

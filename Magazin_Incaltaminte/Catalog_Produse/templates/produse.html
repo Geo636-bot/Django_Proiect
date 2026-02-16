@@ -1,0 +1,88 @@
+{% extends 'baza.html' %}
+{% load static %}
+
+{% block titlu %}
+    {% if categorie_curenta %}{{ categorie_curenta.nume_categorie }}{% else %}Catalog Produse{% endif %} - Magazin
+{% endblock %}
+
+{% block continut %}
+
+    {% if categorie_curenta %}
+        <h1 style="color: {{ categorie_curenta.culoare_cod }};">
+            <i class="{{ categorie_curenta.icon_fontawesome }}"></i> 
+            Produse din categoria: {{ categorie_curenta.nume_categorie }}
+        </h1>
+        
+        <div style="background-color: #f0f8ff; padding: 15px; border-left: 5px solid {{ categorie_curenta.culoare_cod }}; margin-bottom: 20px;">
+            <p><strong>Detalii Categorie:</strong> Această secțiune conține exclusiv încălțăminte destinată genului <strong>{{ categorie_curenta.get_gen_tinta_display }}</strong>.</p>
+        </div>
+    {% else %}
+        <h1>Catalog Complet Produse</h1>
+    {% endif %}
+    <div style="margin-bottom: 25px; padding: 10px; background-color: #eee; border-radius: 5px;">
+        <strong style="margin-right: 15px;">Sortează după preț:</strong>
+        
+        <a href="?sort=a" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; border: 1px solid #ccc; 
+            {% if sort_param == 'a' %}background-color: #004d99; color: white;{% else %}background-color: white; color: black;{% endif %}">
+            Crescător
+        </a>
+        
+        <a href="?sort=d" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; border: 1px solid #ccc; margin-left: 10px;
+            {% if sort_param == 'd' %}background-color: #004d99; color: white;{% else %}background-color: white; color: black;{% endif %}">
+            Descrescător
+        </a>
+        
+        <a href="{% url 'produse' %}" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; margin-left: 10px; color: #666;">
+            Resetează
+        </a>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 20px;">
+        {% for produs in page_obj %}
+            <div style="border: 1px solid #ccc; padding: 15px; border-radius: 5px; background-color: #f9f9f9;">
+                <h2 style="margin-top: 0;">
+                <a href="{% url 'produs_detaliu' produs.id_incaltaminte %}" style="color: #004d99; text-decoration: none;">
+                {{ produs.nume }}
+                </a>
+                </h2>
+                <p><strong>Preț:</strong> {{ produs.pret }} RON</p>
+                <p><strong>Categorie:</strong> 
+                    <a href="{% url 'categorie_detaliu' produs.categorie.nume_categorie %}" style="text-decoration: none;">
+                        <span style="background-color: {{ produs.categorie.culoare_cod }}; color: white; padding: 4px 10px; border-radius: 15px; font-size: 0.9em; font-weight: bold; display: inline-block;">
+                            <i class="{{ produs.categorie.icon_fontawesome }}" style="margin-right: 5px;"></i>
+                            {{ produs.categorie.nume_categorie }}
+                        </span>
+                    </a>
+                </p>    
+                <p><strong>Brand:</strong> {{ produs.brand.nume_brand }}</p>
+                <p><strong>Status:</strong> 
+                    {% if produs.in_stoc %}
+                        <span style="color: green;">În stoc</span>
+                    {% else %}
+                        <span style="color: red;">Epuizat</span>
+                    {% endif %}
+                </p>
+            </div>
+        {% empty %}
+            <p>Nu există produse momentan în magazin.</p>
+        {% endfor %}
+    </div>
+
+    <div style="margin-top: 30px; text-align: center; font-weight: bold;">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">&laquo; prima</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">anterioara</a>
+            {% endif %}
+
+            <span class="current" style="padding: 5px 10px;">
+                Pagina {{ page_obj.number }} din {{ page_obj.paginator.num_pages }}.
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">urmatoarea</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">ultima &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+{% endblock %}

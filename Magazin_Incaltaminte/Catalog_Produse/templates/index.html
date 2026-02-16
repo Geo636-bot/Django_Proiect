@@ -1,18 +1,29 @@
 {% extends 'baza.html' %}
 {% load static %}
-
-{% block titlu %}Acasă - Magazin{% endblock %}
+{% load categorii_tags %} {% block titlu %}Acasă - Magazin{% endblock %}
 
 {% block continut %}
+    {% get_toate_categoriile as categorii_meniu %}
+
+    <section id="categorii">
+        <h2>Categorii</h2>
+        <ul>
+            {% for cat in categorii_meniu %}
+                <li>
+                    <a href="{% url 'categorie_detaliu' cat.nume_categorie %}" style="text-decoration: none; color: #004d99; font-weight: bold;">
+                        {{ cat.nume_categorie }}
+                    </a>
+                </li>
+            {% empty %}
+                <li>Nu există categorii momentan.</li>
+            {% endfor %}
+        </ul>
+    </section>
+
     <section id="descriere">
         <h2>Descriere Proiect</h2>
         <p>{{ descriere_proiect }}</p>
         <img src="{% static 'imagini/incaltaminte.jpg' %}" alt="Încălțăminte">
-    </section>
-
-    <section id="categorii">
-        <h2>Categorii</h2>
-        <ul><li>Sport</li><li>Elegant</li></ul>
     </section>
 
     <section id="oferte">

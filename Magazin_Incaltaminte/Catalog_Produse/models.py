@@ -1,7 +1,6 @@
 from django.db import models
 
 class Categorie(models.Model):
-    # 1. Câmp cu choices (admite doar anumite valori)
     GEN_CHOICES = [
         ('M', 'Masculin'),
         ('F', 'Feminin'),
@@ -11,9 +10,11 @@ class Categorie(models.Model):
     id_categorie = models.AutoField(primary_key=True)
     nume_categorie = models.CharField(max_length=100)
     gen_tinta = models.CharField(max_length=2, choices=GEN_CHOICES)
-    
-    # 2. Câmp cu valoare default
     vizibil_pe_site = models.BooleanField(default=True)
+    
+    # --- CÂMPURILE NOI PENTRU VIZUAL ---
+    culoare_cod = models.CharField(max_length=7, default='#004d99', help_text="Cod HEX (ex: #FF0000)")
+    icon_fontawesome = models.CharField(max_length=50, default='fa-solid fa-shoe-prints', help_text="Clasa FontAwesome")
 
     def __str__(self):
         return f"{self.nume_categorie} ({self.get_gen_tinta_display()})"

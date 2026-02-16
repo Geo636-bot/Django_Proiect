@@ -1,0 +1,51 @@
+{% extends 'baza.html' %}
+{% load static %}
+
+{% block titlu %}{{ produs.nume }} - Detalii{% endblock %}
+
+{% block continut %}
+    <div style="margin-bottom: 20px;">
+        <a href="{% url 'produse' %}" style="text-decoration: none; color: #555;">&laquo; Înapoi la catalog</a>
+    </div>
+
+    <h1>{{ produs.nume }}</h1>
+    
+    <div style="display: flex; gap: 30px; flex-wrap: wrap;">
+        <div style="flex: 1; min-width: 300px;">
+            <img src="{% static 'imagini/incaltaminte.jpg' %}" alt="{{ produs.nume }}" style="width: 100%; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+        </div>
+        
+        <div style="flex: 2; min-width: 300px; background-color: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
+            <h2 style="color: #CC3300; margin-top: 0;">{{ produs.pret }} RON</h2>
+            <p><strong>Descriere:</strong> {{ produs.descriere }}</p>
+            
+            <hr style="border: 0; border-top: 1px solid #ccc; margin: 15px 0;">
+            
+            <p><strong>Categorie:</strong> {{ produs.categorie.nume_categorie }} (Gen: {{ produs.categorie.get_gen_tinta_display }})</p>
+            <p><strong>Brand:</strong> {{ produs.brand.nume_brand }} (Origine: {{ produs.brand.tara_origine }})</p>
+            <p><strong>Culoare:</strong> {{ produs.culoare_principala }}</p>
+            
+            <p><strong>Material:</strong> 
+                {% if produs.material %}
+                    {{ produs.material.nume_material }} 
+                    {% if produs.material.este_impermeabil %}(Impermeabil){% endif %}
+                {% else %}
+                    Nespecificat
+                {% endif %}
+            </p>
+            
+            <p><strong>Greutate:</strong> {% if produs.greutate %}{{ produs.greutate }} grame{% else %}Nespecificată{% endif %}</p>
+            
+            <hr style="border: 0; border-top: 1px solid #ccc; margin: 15px 0;">
+            
+            <h3>Mărimi și Stoc:</h3>
+            <ul>
+                {% for stoc in produs.stocmarime_set.all %}
+                    <li>Mărimea <strong>{{ stoc.marime.valoare }}</strong> {{ stoc.marime.tip_marime }} (Stoc: {{ stoc.cantitate }} bucăți)</li>
+                {% empty %}
+                    <li>Nu există informații despre stocul pe mărimi pentru acest produs.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+{% endblock %}
