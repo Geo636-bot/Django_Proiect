@@ -1,4 +1,4 @@
-# Proiect E-Commerce Django
+# Proiect Django
 
 ## Tema Proiectului: Magazin Online de Încălțăminte
 
