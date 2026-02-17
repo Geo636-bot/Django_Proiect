@@ -2,24 +2,50 @@
 
 ## Tema Proiectului: Magazin Online de Încălțăminte
 
-Acest proiect reprezintă o platformă web interactivă dedicată comercializării de încălțăminte. Scopul principal al aplicației este de a oferi utilizatorilor o experiență de navigare intuitivă, permițându-le să exploreze un catalog diversificat de produse (pantofi sport, eleganți, etc.), să afle informații despre istoricul și echipa magazinului, dar și să interacționeze cu funcționalități specifice precum coșul virtual și paginile de contact. La nivel tehnic, backend-ul este construit robust folosind framework-ul Python Django, incluzând un sistem personalizat de logare și monitorizare a accesărilor pentru fiecare pagină a site-ului.
+Acest proiect reprezintă o platformă web interactivă și dinamică dedicată comercializării de încălțăminte. Scopul principal al aplicației este de a oferi utilizatorilor o experiență de navigare intuitivă, permițându-le să exploreze un catalog diversificat de produse (pantofi sport, eleganți, etc.), să filtreze avansat rezultatele și să interacționeze cu magazinul. 
+
+La nivel tehnic, backend-ul este construit robust folosind framework-ul Python Django. Proiectul pune un accent puternic pe securitatea datelor, validarea complexă a formularelor, managementul sesiunilor și manipularea avansată a bazelor de date prin ORM-ul Django.
 
 ---
 
-## Conținut
+## 🚀 Funcționalități Noi Implementate
+
+* **Sistem de Filtrare Avansat (`forms.Form`):**
+  * Filtre complexe după nume, descriere, culori, intervale de preț (min/max), greutate, stoc și relații (Categorie, Brand, Material).
+  * Menținerea stării filtrelor în timpul paginării și sortării (URL parameters retention).
+  * Sistem inteligent de repaginare cu avertismente bazate pe `request.session`.
+* **Securitate și Validări Personalizate:**
+  * Validări încrucișate la nivel de formular (`clean()`) pentru prevenirea datelor logice eronate (ex: diferențe de greutate între pantofi, preț minim > preț maxim).
+  * Securitate pe paginile de categorii (prevenirea manipulării câmpurilor ascunse/hidden din browser prin "Inspect Element").
+  * Expresii regulate (Regex) pentru curățarea textelor, blocarea link-urilor și a caracterelor speciale.
+* **Procesare și Salvare Fișiere (JSON):**
+  * Formular de contact care nu salvează în baza de date, ci preprocesează informațiile (calculează vârsta în ani și luni, formatează spațiile, capitalizează literele).
+  * Generarea de fișiere `.json` locale ce includ metadate (IP-ul utilizatorului, timestamp) și marcaje de urgență pe baza logicii de business.
+* **Formulare Dinamice (`ModelForm`):**
+  * Formular pentru adăugarea produselor noi care ascunde coloane din baza de date și le calculează matematic în spate (preț final bazat pe preț furnizor + adaos) folosind `commit=False`.
+* **UI/UX Îmbunătățit:**
+  * Integrare FontAwesome și coduri HEX în baza de date pentru generarea vizuală și dinamică a etichetelor de categorii.
+  * Butoane inteligente de resetare a filtrelor cu confirmare JavaScript.
+
+---
+
+## 📂 Conținutul Platformei
+
 Acest proiect conține următoarele pagini principale:
 
-* **Prima pagină (Acasă):** Pagina principală a magazinului. Conține descrierea proiectului, categoriile principale de produse și ofertele curente.
-* **Despre noi:** O scurtă istorie a magazinului nostru și detalii despre echipa din spate.
-* **Produse:** Catalogul complet unde vizitatorii pot vizualiza încălțămintea disponibilă.
-* **Contact:** Formularul și datele de contact pentru suport clienți.
-* **Coș virtual:** Secțiunea unde utilizatorii își pot revizui produsele adăugate înainte de finalizarea comenzii.
-* **FAQ (Întrebări frecvente):** Răspunsuri la cele mai comune curiozități ale clienților noștri.
-* **Termeni și condiții:** Detaliile legale privind utilizarea magazinului online.
+* **Prima pagină (Acasă):** Descrierea proiectului și oferte curente.
+* **Categorii (`/categorii/`):** Listarea tuturor categoriilor de încălțăminte cu identitate vizuală proprie.
+* **Catalog Produse (`/produse/`):** Catalogul complet, dotat cu paginare, sortare și panou lateral de filtrare complexă.
+* **Adăugare Produs (`/adauga-produs/`):** Interfață protejată pentru angajați, destinată adăugării de inventar nou cu calcul automat de costuri.
+* **Contact (`/contact/`):** Formular avansat de contact cu reguli stricte de validare (CNP valid, restricții de vârstă, blocare emailuri temporare).
+* **Despre noi:** O scurtă istorie a magazinului și detalii despre echipa din spate.
+* **Coș virtual / FAQ / Termeni și condiții:** Secțiuni standard pentru e-commerce.
 
-## Structura Proiectului
+---
 
-Proiectul este construit folosind framework-ul Django și respectă o arhitectură standard, fiind structurat astfel:
+## 🏗️ Structura Proiectului
+
+Proiectul este construit folosind arhitectura standard Django (MVT - Model View Template), fiind structurat astfel:
 
 ```text
 DJANGO_PROIECT/
@@ -28,33 +54,28 @@ DJANGO_PROIECT/
     ├── README.md                         # Documentația proiectului
     │
     ├── Magazin_Incaltaminte/             # Pachetul de configurare al proiectului
-    │   ├── __init__.py
-    │   ├── asgi.py
-    │   ├── settings.py                   # Setările globale (inclusiv configurarea static/templates)
+    │   ├── settings.py                   # Setările globale
     │   ├── urls.py                       # Rutarea principală a proiectului
-    │   └── wsgi.py
+    │   └── wsgi.py / asgi.py
     │
     └── Catalog_Produse/                  # Aplicația principală a magazinului
         ├── migrations/                   # Fisierele pentru migrarea bazei de date
-        ├── __init__.py
+        ├── Mesaje/                       # [NOU] Folder generat pentru salvarea cererilor de contact (.json)
         ├── admin.py                      # Configurarea interfeței de administrare
-        ├── apps.py
+        ├── forms.py                      # [NOU] Logica tuturor formularelor (Filtrare, Contact, ModelForms)
         ├── models.py                     # Definirea structurii bazei de date (Modele)
-        ├── tests.py                      # Teste unitare
         ├── urls.py                       # Rutele specifice aplicației
-        ├── views.py                      # Logica din spate (funcțiile care randează paginile)
+        ├── views.py                      # Logica aplicației (filtrare, procesare date, salvare)
         │
         ├── static/                       # Fișiere statice (CSS, JavaScript, Imagini)
-        │   ├── css/
-        │   │   └── style.css             # Fișierul CSS pentru design (inclusiv meniul derulant)
-        │   └── imagini/
-        │       ├── incaltaminte.jpg      # Imagine pentru prima pagină
-        │       └── echipa.jpg            # Imagine pentru pagina Despre Noi
+        │   ├── css/style.css             
+        │   └── imagini/                  
         │
         └── templates/                    # Șabloanele HTML
             ├── baza.html                 # Template-ul de bază (Header, Footer, Meniu)
             ├── index.html                # Prima pagină (Acasă)
-            ├── despre.html               # Pagina Despre Noi
-            ├── in_lucru.html             # Pagina generică pentru secțiunile nefinalizate
-            ├── info.html                 # Pagina cu detalii despre server și request curent
-            └── log.html                  # Pagina cu istoricul de accesări
+            ├── produse.html              # [NOU] Catalogul cu filtre, sortare și paginare
+            ├── contact.html              # [NOU] Formularul de contact cu afișare erori integrate
+            ├── adauga_produs.html        # [NOU] Interfața de adăugare produse noi
+            ├── toate_categoriile.html    # [NOU] Lista vizuală a categoriilor
+            └── log.html / info.html / etc.
