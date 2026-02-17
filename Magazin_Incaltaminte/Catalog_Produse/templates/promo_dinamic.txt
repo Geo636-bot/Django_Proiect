@@ -1,0 +1,14 @@
+Salut {{ nume_utilizator }},
+
+Avem o veste excelentă pentru tine! 
+A început campania pentru categoriile: {{ nume_categorii }}.
+
+Știm că ești mereu în mișcare, așa că ți-am pregătit o reducere de {{ procent }}%.
+
+Nu uita de produsele pe care le-ai admirat recent pe site-ul nostru. S-ar putea să se epuizeze curând:
+{{ produse_vizualizate }}
+
+Grăbește-te! Această ofertă este valabilă doar până la data de: {{ data_expirare }}.
+
+Toate cele bune,
+Echipa Magazinului

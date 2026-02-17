@@ -50,9 +50,17 @@
             </ul>
         </nav>
     </header>
+    {% if messages %}
+    <div style="max-width: 800px; margin: 10px auto;">
+        {% for message in messages %}
+            {{ message }}
+        {% endfor %}
+    </div>
+    {% endif %}
 
+    {% block continut %}
+    {% endblock %}
     <main>
-        {% block continut %}{% endblock %}
     </main>
 
 

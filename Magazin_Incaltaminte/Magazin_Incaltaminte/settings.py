@@ -24,6 +24,10 @@ SECRET_KEY = 'django-insecure-vj5a%gkwkbmb_4pypn5^hk4@hib)p2lxb20k_0@&twgle$7clj
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+ADMINS = [
+    ('Director Securitate', 'securitate@magazinulincaltaminte.ro'),
+    ('DevOps Engineer', 'admin@magazinulincaltaminte.ro'),
+]   
 
 ALLOWED_HOSTS = []
 
@@ -127,3 +131,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST_USER = 'contact@magazinulincaltaminte.ro'
 AUTH_USER_MODEL = 'Catalog_Produse.CustomUser'
+LOGIN_URL = '/login/'

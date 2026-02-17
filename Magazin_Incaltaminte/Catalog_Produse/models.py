@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.utils import timezone
 
 class Categorie(models.Model):
     GEN_CHOICES = [
@@ -109,3 +110,42 @@ class CustomUser(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.email})"
+    
+class Vizualizare(models.Model):
+    utilizator = models.ForeignKey('CustomUser', on_delete=models.CASCADE, related_name='istoric_vizualizari')
+    produs = models.ForeignKey('Produs', on_delete=models.CASCADE)
+    
+    # Folosim auto_now=True ca să se actualizeze automat data dacă intră iar pe același produs
+    data_vizualizarii = models.DateTimeField(auto_now=True, verbose_name="Data Vizualizării")
+
+    class Meta:
+        # Ordonăm descrescător, ca cele mai recente vizualizări să fie primele
+        ordering = ['-data_vizualizarii']
+
+    def __str__(self):
+        return f"{self.utilizator.username} a vizualizat {self.produs.nume}"
+    
+class Promotie(models.Model):
+    nume = models.CharField(max_length=100, verbose_name="Nume Campanie")
+    data_creare = models.DateTimeField(auto_now_add=True)
+    data_expirare = models.DateTimeField(verbose_name="Data Expirării")
+    procent_reducere = models.IntegerField(verbose_name="Procent Reducere (%)")
+    subiect_email = models.CharField(max_length=150, verbose_name="Subiect E-mail")
+    
+    # 1. Caracteristica aleasă: O promoție se aplică pe MAI MULTE categorii
+    categorii = models.ManyToManyField('Categorie', verbose_name="Categorii vizate")
+    
+    # 2. Permitem administratorului să aleagă ce template text folosește pentru acest e-mail
+    TEMPLATE_CHOICES = [
+        ('promo_dinamic.txt', 'Template Casual / Sport (Dinamic)'),
+        ('promo_elegant.txt', 'Template Elegant / Premium'),
+    ]
+    template_ales = models.CharField(
+        max_length=50, 
+        choices=TEMPLATE_CHOICES, 
+        default='promo_dinamic.txt',
+        verbose_name="Fișier Template Text"
+    )
+
+    def __str__(self):
+        return self.nume

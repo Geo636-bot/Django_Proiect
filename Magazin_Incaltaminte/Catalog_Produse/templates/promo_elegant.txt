@@ -1,0 +1,14 @@
+Dragă {{ nume_utilizator }},
+
+Eleganța face diferența. 
+Te anunțăm cu bucurie că a devenit activă campania noastră pentru categoriile: {{ nume_categorii }}.
+
+Beneficiezi de un discount exclusiv de {{ procent }}% pentru a-ți completa ținuta de ocazie.
+
+Iată ce ți-a atras atenția recent din catalogul nostru premium:
+{{ produse_vizualizate }}
+
+Te așteptăm pe site înainte de expirarea ofertei pe {{ data_expirare }}.
+
+Cu respect,
+Echipa Magazinului

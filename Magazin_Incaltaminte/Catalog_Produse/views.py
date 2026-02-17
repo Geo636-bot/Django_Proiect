@@ -4,21 +4,23 @@ import time
 import os
 import json
 from datetime import date
+from django import forms
 from django.conf import settings
 from django.shortcuts import get_object_or_404,render,redirect
 from django.core.paginator import Paginator
-from django import forms
+from django.db.models import Count, Q
 from django.utils.crypto import get_random_string
-from django.core.mail import EmailMultiAlternatives
+from django.core.mail import send_mass_mail,mail_admins,EmailMultiAlternatives
 from django.template.loader import render_to_string
 from django.urls import reverse
 from django.http import HttpResponse
 from django.contrib import messages
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required
-from .models import Produs, Categorie
+from django.utils import timezone
+from .models import Produs, Categorie,Vizualizare,CustomUser,Promotie
 from collections import Counter
-from .forms import FiltruProduseForm,ContactForm,ProdusForm,CustomLoginForm,InregistrareForm
+from .forms import FiltruProduseForm,ContactForm,ProdusForm,CustomLoginForm,InregistrareForm,PromotieForm
 
 LUNI = [
     "", 
@@ -778,11 +780,15 @@ def login_view(request):
         form = CustomLoginForm(request, data=request.POST)
         
         if form.is_valid():
+            # Dacă logarea reușește, curățăm istoricul de încercări eșuate
+            if 'logari_esuate' in request.session:
+                del request.session['logari_esuate']
+                
             user = form.get_user()
             if not user.email_confirmat:
                 messages.error(request, "Eroare: Trebuie să confirmi adresa de e-mail înainte de a te loga! Verifică inbox-ul.")
-                # Îl întoarcem pe pagina de login și oprim restul funcției
                 return render(request, 'login.html', {'form': form})
+                
             login(request, user)
             
             # --- GESTIONAREA SESIUNII (1 ZI SAU PÂNĂ LA ÎNCHIDERE) ---
@@ -806,6 +812,63 @@ def login_view(request):
             
             messages.success(request, f"Bine ai venit, {user.username}!")
             return redirect('profil') # Redirecționăm către pagina de profil
+            
+        else:
+            # --- MĂSURĂ DE SECURITATE: LOGĂRI SUSPECTE ---
+            # Această ramură se execută dacă logarea a eșuat (parolă/user greșit)
+            
+            username_incercat = request.POST.get('username', 'Nespecificat')
+            ip_incercat = request.META.get('REMOTE_ADDR', 'IP Necunoscut')
+            
+            # Preluăm lista cu momentele (timpii) logărilor eșuate anterioare
+            logari_esuate = request.session.get('logari_esuate', [])
+            acum = time.time()
+            
+            # Păstrăm în listă doar încercările din ultimele 120 de secunde (2 minute)
+            logari_esuate = [t for t in logari_esuate if acum - t < 120]
+            # Adăugăm încercarea curentă
+            logari_esuate.append(acum)
+            
+            # Salvăm lista actualizată înapoi în sesiune
+            request.session['logari_esuate'] = logari_esuate
+            
+            # Dacă sunt 3 sau mai multe încercări eșuate în intervalul de 2 minute
+            if len(logari_esuate) >= 3:
+                subiect = "Logari suspecte"
+                
+                # Format Text
+                mesaj_text = f"Alerta de securitate!\nS-au înregistrat {len(logari_esuate)} încercări eșuate de logare în mai puțin de 2 minute.\nUsername încercat: {username_incercat}\nIP: {ip_incercat}"
+                
+                # Format HTML (cu H1 roșu conform cerinței)
+                mesaj_html = f"""
+                <html>
+                    <body>
+                        <h1 style="color: red;">{subiect}</h1>
+                        <p>S-au înregistrat mai multe încercări eșuate de logare în ultimele 2 minute.</p>
+                        <ul>
+                            <li><strong>Username încercat:</strong> {username_incercat}</li>
+                            <li><strong>IP-ul atacatorului:</strong> {ip_incercat}</li>
+                        </ul>
+                    </body>
+                </html>
+                """
+                
+                # Trimitem e-mailul administratorilor (definiti in settings.py la ADMINS)
+                try:
+                    mail_admins(
+                        subject=subiect,
+                        message=mesaj_text,
+                        html_message=mesaj_html,
+                        fail_silently=False
+                    )
+                except Exception as e:
+                    # Am adăugat un try-except discret aici ca să nu crape pagina de login
+                    # în caz că setările SMTP nu sunt configurate perfect încă.
+                    pass
+                
+                # Opțional: Resetăm contorul după ce trimitem alerta
+                # request.session['logari_esuate'] = []
+
     else:
         form = CustomLoginForm()
         
@@ -836,6 +899,7 @@ def inregistrare_view(request):
         if form.is_valid():
             # 1. Oprim salvarea temporar pentru a adăuga codul
             user = form.save(commit=False)
+            
             
             # 2. Generăm codul aleator de 50 caractere
             cod_generat = get_random_string(length=50)
@@ -890,3 +954,188 @@ def confirma_mail_view(request, cod):
     else:
         messages.error(request, "Cod de confirmare invalid sau expirat!")
         return redirect('index') # Îl trimitem spre prima pagină
+    
+    
+def produs_detaliu(request, id_produs):
+    # Preluăm produsul din baza de date
+    produs = get_object_or_404(Produs, id=id_produs)
+    
+    # --- LOGICA PENTRU PROMOȚII (Ultimele N vizualizări) ---
+    if request.user.is_authenticated:
+        # 1. Inserăm sau actualizăm vizualizarea curentă
+        vizualizare, created = Vizualizare.objects.get_or_create(
+            utilizator=request.user,
+            produs=produs
+        )
+        if not created:
+            vizualizare.data_vizualizarii = timezone.now()
+            vizualizare.save()
+
+        # 2. Verificăm dacă am depășit limita N (setăm N=5)
+        N = 5
+        vizualizari_user = Vizualizare.objects.filter(utilizator=request.user)
+        
+        if vizualizari_user.count() > N:
+            # Găsim CEA MAI VECHE vizualizare (ordonăm crescător după dată și o luăm pe prima)
+            cea_mai_veche = vizualizari_user.order_by('data_vizualizarii').first()
+            
+            # O ștergem din baza de date
+            if cea_mai_veche:
+                cea_mai_veche.delete()
+    # -------------------------------------------------------
+
+    return render(request, 'produs_detaliu.html', {'produs': produs})
+
+def trimite_newsletter_promotie(id_promotie):
+    promotie = Promotie.objects.get(id=id_promotie)
+    categorii_promo = promotie.categorii.all()
+    nume_categorii = ", ".join([c.nume_categorie for c in categorii_promo])
+    
+    utilizatori = CustomUser.objects.filter(email_confirmat=True)
+    mesaje_de_trimis = [] # Lista în care strângem toate e-mailurile (tupluri)
+
+    for utilizator in utilizatori:
+        # Căutăm DOAR produsele vizualizate de acest utilizator care fac parte din categoriile aflate la promoție
+        vizualizari = Vizualizare.objects.filter(
+            utilizator=utilizator, 
+            produs__categorie__in=categorii_promo
+        )
+        
+        # Dacă utilizatorul a vizualizat produse din aceste categorii, îi pregătim mailul
+        if vizualizari.exists():
+            lista_produse_text = ""
+            for v in vizualizari:
+                lista_produse_text += f"- {v.produs.nume} (Preț: {v.produs.pret} RON)\n"
+
+            # 1. Mapăm variabilele pentru template-urile .txt
+            context = {
+                'nume_utilizator': utilizator.username,
+                'nume_categorii': nume_categorii,
+                'procent': promotie.procent_reducere,
+                'produse_vizualizate': lista_produse_text,
+                'data_expirare': promotie.data_expirare.strftime('%d-%m-%Y %H:%M')
+            }
+
+            # 2. Generăm textul curat din template
+            mesaj_text = render_to_string(promotie.template_ales, context)
+
+            # 3. Adăugăm tuplul necesar pentru send_mass_mail
+            # Format: (Subiect, Mesaj_Text, Expeditor, [Destinatari])
+            mesaje_de_trimis.append(
+                (promotie.subiect_email, mesaj_text, 'oferte@magazin.ro', [utilizator.email])
+            )
+
+    # 4. Trimitem TOATE e-mailurile odată (o singură conexiune la serverul SMTP, foarte rapid)
+    if mesaje_de_trimis:
+        send_mass_mail(tuple(mesaje_de_trimis), fail_silently=False)
+        return len(mesaje_de_trimis) # Returnează numărul de mesaje trimise
+    
+    return 0
+
+def promotii_view(request):
+    if request.method == 'POST':
+        form = PromotieForm(request.POST)
+        
+        if form.is_valid():
+            # 1. CERINȚA 1: Introducem datele noii promoții în tabel
+            promotie_noua = form.save()
+            
+            # Setăm K (numărul minim de vizualizări necesare într-o categorie)
+            K = 2
+            
+            # Lista în care vom strânge TOATE mesajele pentru a le trimite dintr-o singură comandă
+            mesaje_de_trimis = []
+            
+            # 2. CERINȚA 2: Grupăm userii pentru fiecare categorie în parte
+            for categorie in promotie_noua.categorii.all():
+                
+                # Căutăm utilizatorii care au MINIM K vizualizări STRICT în categoria curentă din buclă
+                # (Folosim relația 'istoric_vizualizari' din CustomUser către Vizualizare)
+                utilizatori_eligibili = CustomUser.objects.filter(
+                    email_confirmat=True
+                ).annotate(
+                    vizualizari_categorie=Count(
+                        'istoric_vizualizari', 
+                        filter=Q(istoric_vizualizari__produs__categorie=categorie) 
+                    )
+                ).filter(vizualizari_categorie__gte=K)
+                
+                # Pentru fiecare utilizator care s-a calificat la această categorie
+                for utilizator in utilizatori_eligibili:
+                    
+                    # Extragem exact produsele pe care le-a vizualizat din ACEASTĂ categorie
+                    vizualizari_user = Vizualizare.objects.filter(
+                        utilizator=utilizator,
+                        produs__categorie=categorie
+                    )
+                    
+                    # Construim lista de produse pentru textul e-mailului
+                    lista_produse_text = ""
+                    for v in vizualizari_user:
+                        lista_produse_text += f"- {v.produs.nume} (Preț: {v.produs.pret} RON)\n"
+                        
+                    # Pregătim variabilele pentru fișierul .txt al campaniei
+                    context = {
+                        'nume_utilizator': utilizator.username,
+                        'nume_categorii': categorie.nume_categorie, # Numele categoriei curente
+                        'procent': promotie_noua.procent_reducere,
+                        'produse_vizualizate': lista_produse_text,
+                        'data_expirare': promotie_noua.data_expirare.strftime('%d-%m-%Y %H:%M')
+                    }
+                    
+                    # Randăm mesajul folosind template-ul ales în formular (ex: promo_dinamic.txt)
+                    mesaj_text = render_to_string(promotie_noua.template_ales, context)
+                    
+                    # Adăugăm mesajul gata formatat în cutia generală
+                    # Format tuplu: (Subiect, Mesaj, Expeditor, [Destinatari])
+                    mesaje_de_trimis.append(
+                        (promotie_noua.subiect_email, mesaj_text, 'oferte@magazin.ro', [utilizator.email])
+                    )
+            
+            # 3. CERINȚA 3 ȘI SECURITATE: Bloc try...except pentru trimitere
+            try:
+                if mesaje_de_trimis:
+                    # tuple() transformă lista într-o structură acceptată de send_mass_mail
+                    send_mass_mail(tuple(mesaje_de_trimis), fail_silently=False)
+                
+                messages.success(
+                    request, 
+                    f"Promoția '{promotie_noua.nume}' a fost salvată. S-au trimis {len(mesaje_de_trimis)} e-mailuri personalizate!"
+                )
+            except Exception as e:
+                # Dacă apare o eroare de conexiune sau orice altă excepție, alertăm administratorii
+                subiect_eroare = "Eroare critica la trimiterea ofertelor"
+                
+                # Mesajul în format text simplu
+                mesaj_text_eroare = f"A apărut o eroare la trimiterea campaniei '{promotie_noua.nume}'. Eroarea este: {str(e)}"
+                
+                # Mesajul în format HTML cu H1 roșu și eroare pe fundal roșu
+                mesaj_html_eroare = f"""
+                <html>
+                    <body>
+                        <h1 style="color: red;">{subiect_eroare}</h1>
+                        <p>Sistemul de oferte automate a eșuat. Detaliile erorii:</p>
+                        <div style="background-color: red; color: white; padding: 15px; font-weight: bold; border-radius: 5px;">
+                            {str(e)}
+                        </div>
+                    </body>
+                </html>
+                """
+                
+                # Trimitem mail-ul către cei din lista ADMINS (din settings.py)
+                mail_admins(
+                    subject=subiect_eroare,
+                    message=mesaj_text_eroare,
+                    html_message=mesaj_html_eroare,
+                    fail_silently=False
+                )
+                
+                # Afișăm un mesaj de eroare prietenos utilizatorului care a dat submit pe site
+                messages.error(request, "A apărut o eroare tehnică la trimiterea e-mailurilor. Administratorii au fost notificați.")
+            
+            return redirect('promotii')
+            
+    else:
+        form = PromotieForm()
+        
+    return render(request, 'promotii.html', {'form': form})

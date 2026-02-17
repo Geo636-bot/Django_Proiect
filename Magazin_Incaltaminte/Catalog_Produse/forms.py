@@ -1,8 +1,9 @@
 from datetime import date
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.mail import mail_admins
 from django.contrib.auth.forms import UserCreationForm,AuthenticationForm
-from .models import Categorie, Brand, Material,Produs,CustomUser
+from .models import Categorie, Brand, Material,Produs,CustomUser,Promotie
 import re
 
 class FiltruProduseForm(forms.Form):
@@ -457,6 +458,35 @@ class InregistrareForm(UserCreationForm):
         return data
     
     
+    # CERINȚA: Alertă dacă cineva încearcă să se înregistreze cu numele "admin"
+    def clean_username(self):
+        username = self.cleaned_data.get('username')
+        if username and username.lower() == 'admin':
+            # Preluăm email-ul din datele introduse (folosim self.data pentru datele brute)
+            email_incercat = self.data.get('email', 'Nespecificat')
+            
+            subiect = "cineva incearca sa ne preia site-ul"
+            mesaj_text = f"S-a încercat o înregistrare cu username-ul 'admin'. E-mailul folosit a fost: {email_incercat}"
+            
+            # Formatul HTML cu h1 roșu, conform cerinței
+            mesaj_html = f"""
+            <html>
+                <body>
+                    <h1 style="color: red;">{subiect}</h1>
+                    <p>{mesaj_text}</p>
+                </body>
+            </html>
+            """
+            
+            # Trimitem alerta către toți administratorii
+            mail_admins(subiect, mesaj_text, html_message=mesaj_html)
+            
+            # Refuzăm înregistrarea dând o eroare în formular
+            raise ValidationError("Acest nume de utilizator este rezervat și nu poate fi folosit!")
+            
+        return username
+    
+    
 
 class CustomLoginForm(AuthenticationForm):
     ramai_logat = forms.BooleanField(
@@ -464,3 +494,37 @@ class CustomLoginForm(AuthenticationForm):
         label="Păstrează-mă logat pe site (24 ore)",
         widget=forms.CheckboxInput(attrs={'class': 'checkbox-custom'})
     )
+    
+class PromotieForm(forms.ModelForm):
+    # Selectăm doar categoriile pentru care am făcut template-uri (ex: Sport și Elegant)
+    # ATENȚIE: Modifică numele din listă dacă în baza ta de date se numesc altfel!
+    categorii = forms.ModelMultipleChoiceField(
+        queryset=Categorie.objects.filter(nume_categorie__in=['Sport', 'Elegant']),
+        widget=forms.CheckboxSelectMultiple,
+        label="Categorii vizate (cu template disponibil)"
+    )
+
+    class Meta:
+        model = Promotie
+        # Mapăm exact câmpurile cerute
+        fields = ['nume', 'subiect_email', 'template_ales', 'data_expirare', 'procent_reducere', 'categorii']
+        
+        labels = {
+            'nume': 'Nume Promoție',
+            'subiect_email': 'Subiect E-mail',
+            'template_ales': 'Mesaj (Alege Template-ul)',
+            'data_expirare': 'Timp Promoție (Data Expirării)',
+            'procent_reducere': 'Procent Reducere (%)'
+        }
+        
+        widgets = {
+            # Folosim un widget HTML5 pentru a putea alege data și ora din calendar
+            'data_expirare': forms.DateTimeInput(attrs={'type': 'datetime-local'}),
+        }
+
+    # Setăm categoriile să fie TOATE bifate implicit, exact cum cere cerința
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self.is_bound: # Doar când afișăm formularul gol inițial
+            # Aici am modificat 'id' în 'id_categorie' ca să se potrivească cu modelul tău!
+            self.fields['categorii'].initial = self.fields['categorii'].queryset.values_list('id_categorie', flat=True)
