@@ -1,0 +1,11 @@
+{% extends 'baza.html' %}
+{% block titlu %}Schimbă Parola{% endblock %}
+{% block continut %}
+    <h2>Schimbă Parola</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Actualizează Parola</button>
+        <a href="{% url 'profil' %}">Anulează</a>
+    </form>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends 'baza.html' %}
+{% block titlu %}Login{% endblock %}
+{% block continut %}
+    <h2>Autentificare</h2>
+    <form method="POST">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">Loghează-te</button>
+    </form>
+    
+{% endblock %}

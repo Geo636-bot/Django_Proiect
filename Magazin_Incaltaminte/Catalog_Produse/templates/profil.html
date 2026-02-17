@@ -1,0 +1,22 @@
+{% extends 'baza.html' %}
+{% block titlu %}Profilul Meu{% endblock %}
+{% block continut %}
+    <h2>Profilul tău</h2>
+    <div style="background: #f4f4f4; padding: 20px; border-radius: 8px;">
+        <p><strong>Username:</strong> {{ date_profil.username }}</p>
+        <p><strong>Nume complet:</strong> {{ date_profil.nume_complet }}</p>
+        <p><strong>E-mail:</strong> {{ date_profil.email }}</p>
+        <p><strong>Telefon:</strong> {{ date_profil.telefon }}</p>
+        <p><strong>Adresă:</strong> {{ date_profil.adresa }}</p>
+        <p><strong>CNP:</strong> {{ date_profil.cnp }}</p>
+        
+        <hr>
+        <a href="{% url 'schimba_parola' %}" style="display:inline-block; padding:10px 15px; background:navy; color:white; text-decoration:none; border-radius:5px;">
+            Schimbă Parola
+        </a>
+        
+        <a href="{% url 'logout' %}" style="display:inline-block; padding:10px 15px; background:#cc0000; color:white; text-decoration:none; border-radius:5px; margin-left:10px;">
+            Deconectare
+        </a>
+    </div>
+{% endblock %}

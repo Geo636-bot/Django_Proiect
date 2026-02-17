@@ -8,11 +8,17 @@ from django.conf import settings
 from django.shortcuts import get_object_or_404,render,redirect
 from django.core.paginator import Paginator
 from django import forms
+from django.utils.crypto import get_random_string
+from django.core.mail import EmailMultiAlternatives
+from django.template.loader import render_to_string
+from django.urls import reverse
 from django.http import HttpResponse
 from django.contrib import messages
+from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.decorators import login_required
 from .models import Produs, Categorie
 from collections import Counter
-from .forms import FiltruProduseForm,ContactForm,ProdusForm
+from .forms import FiltruProduseForm,ContactForm,ProdusForm,CustomLoginForm,InregistrareForm
 
 LUNI = [
     "", 
@@ -765,3 +771,122 @@ def adauga_produs_view(request):
         form = ProdusForm()
         
     return render(request, 'adauga_produs.html', {'form': form})
+
+
+def login_view(request):
+    if request.method == 'POST':
+        form = CustomLoginForm(request, data=request.POST)
+        
+        if form.is_valid():
+            user = form.get_user()
+            if not user.email_confirmat:
+                messages.error(request, "Eroare: Trebuie să confirmi adresa de e-mail înainte de a te loga! Verifică inbox-ul.")
+                # Îl întoarcem pe pagina de login și oprim restul funcției
+                return render(request, 'login.html', {'form': form})
+            login(request, user)
+            
+            # --- GESTIONAREA SESIUNII (1 ZI SAU PÂNĂ LA ÎNCHIDERE) ---
+            ramai_logat = form.cleaned_data.get('ramai_logat')
+            if ramai_logat:
+                # 1 zi = 24 ore * 60 min * 60 sec = 86400 secunde
+                request.session.set_expiry(86400)
+            else:
+                # Dacă punem 0, sesiunea expiră când utilizatorul închide browser-ul
+                request.session.set_expiry(0)
+                
+            # --- SALVAREA DATELOR ÎN SESIUNE PENTRU PAGINA DE PROFIL ---
+            request.session['date_profil'] = {
+                'username': user.username,
+                'nume_complet': f"{user.first_name} {user.last_name}",
+                'email': user.email,
+                'telefon': user.telefon if hasattr(user, 'telefon') else "-",
+                'adresa': user.adresa if hasattr(user, 'adresa') else "-",
+                'cnp': user.cnp if hasattr(user, 'cnp') else "-",
+            }
+            
+            messages.success(request, f"Bine ai venit, {user.username}!")
+            return redirect('profil') # Redirecționăm către pagina de profil
+    else:
+        form = CustomLoginForm()
+        
+    return render(request, 'login.html', {'form': form})
+
+
+def logout_view(request):
+    """Șterge sesiunea utilizatorului și îl deloghează."""
+    logout(request)
+    messages.info(request, "Te-ai delogat cu succes!")
+    return redirect('login')
+
+
+@login_required(login_url='/login/')
+def profil_view(request):
+    """Afișează datele utilizatorului extrase STRICT din sesiune."""
+    
+    # Extragem dicționarul salvat la login
+    date_profil = request.session.get('date_profil', {})
+    
+    return render(request, 'profil.html', {'date_profil': date_profil})
+
+
+def inregistrare_view(request):
+    if request.method == 'POST':
+        form = InregistrareForm(request.POST)
+        
+        if form.is_valid():
+            # 1. Oprim salvarea temporar pentru a adăuga codul
+            user = form.save(commit=False)
+            
+            # 2. Generăm codul aleator de 50 caractere
+            cod_generat = get_random_string(length=50)
+            user.cod = cod_generat
+            user.email_confirmat = False # Ne asigurăm că este fals inițial
+            
+            # 3. Salvăm definitiv utilizatorul
+            user.save()
+            
+            # 4. Construim link-ul absolut pentru confirmare
+            link_confirmare = request.build_absolute_uri(reverse('confirma_mail', args=[cod_generat]))
+            
+            # 5. Randăm template-ul HTML pentru e-mail
+            html_content = render_to_string('email_confirmare.html', {
+                'nume': user.last_name,
+                'prenume': user.first_name,
+                'username': user.username,
+                'link_confirmare': link_confirmare
+            })
+            
+            # 6. Trimitem e-mailul
+            subiect = 'Confirmare înregistrare cont'
+            text_simplu = f'Salut {user.first_name}, te rugăm să accesezi acest link: {link_confirmare}'
+            
+            msg = EmailMultiAlternatives(subiect, text_simplu, settings.EMAIL_HOST_USER, [user.email])
+            msg.attach_alternative(html_content, "text/html")
+            msg.send()
+            
+            messages.success(request, "Contul a fost creat! Verifică e-mailul pentru a-l confirma.")
+            return redirect('login')
+    else:
+        form = InregistrareForm()
+        
+    return render(request, 'inregistrare.html', {'form': form})
+
+def confirma_mail_view(request, cod):
+    # Căutăm utilizatorul cu acel cod
+    from .models import CustomUser
+    user = CustomUser.objects.filter(cod=cod).first()
+    
+    if user:
+        if user.email_confirmat:
+            messages.info(request, "Acest e-mail a fost deja confirmat!")
+        else:
+            user.email_confirmat = True
+            # Opțional: Ștergem codul ca să nu mai poată fi folosit
+            user.cod = None 
+            user.save()
+            messages.success(request, "Adresa de e-mail a fost confirmată cu succes! Acum te poți loga.")
+        
+        return redirect('login')
+    else:
+        messages.error(request, "Cod de confirmare invalid sau expirat!")
+        return redirect('index') # Îl trimitem spre prima pagină

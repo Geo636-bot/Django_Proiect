@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import AbstractUser
 
 class Categorie(models.Model):
     GEN_CHOICES = [
@@ -91,3 +92,20 @@ class StocMarime(models.Model):
 
     def __str__(self):
         return f"{self.produs.nume} - Mărimea {self.marime.valoare} (Stoc: {self.cantitate})"
+    
+
+
+class CustomUser(AbstractUser):
+    # Câmpurile implicite (username, password, first_name, last_name, email) sunt incluse automat.
+    
+    # Cele 5 câmpuri suplimentare:
+    telefon = models.CharField(max_length=15, blank=True, null=True, verbose_name="Număr de telefon")
+    adresa = models.TextField(max_length=255, blank=True, null=True, verbose_name="Adresă completă")
+    judet = models.CharField(max_length=50, blank=True, null=True, verbose_name="Județ")
+    data_nasterii = models.DateField(blank=True, null=True, verbose_name="Data nașterii")
+    cnp = models.CharField(max_length=13, blank=True, null=True, verbose_name="CNP")
+    cod = models.CharField(max_length=100, blank=True, null=True, verbose_name="Cod Confirmare")
+    email_confirmat = models.BooleanField(default=False, verbose_name="E-mail Confirmat")
+
+    def __str__(self):
+        return f"{self.username} ({self.email})"

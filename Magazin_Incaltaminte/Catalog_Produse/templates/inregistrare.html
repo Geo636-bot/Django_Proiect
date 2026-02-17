@@ -1,0 +1,26 @@
+{% extends 'baza.html' %}
+
+{% block titlu %}Înregistrare Cont Nou{% endblock %}
+
+{% block continut %}
+    <div style="max-width: 600px; margin: 0 auto; background: #f9f9f9; padding: 30px; border-radius: 8px;">
+        <h2>Creează un cont nou</h2>
+        <p>Completează datele de mai jos pentru a deveni membru al magazinului nostru.</p>
+        
+        <form method="POST" action="{% url 'inregistrare' %}">
+            {% csrf_token %}
+            
+            <div style="display: flex; flex-direction: column; gap: 15px;">
+                {{ form.as_p }}
+            </div>
+            
+            <button type="submit" style="margin-top: 20px; padding: 10px 20px; background-color: #28a745; color: white; border: none; border-radius: 5px; font-weight: bold; cursor: pointer;">
+                Înregistrează-te
+            </button>
+        </form>
+        
+        <p style="margin-top: 20px;">
+            Ai deja cont? <a href="{% url 'login' %}">Loghează-te aici</a>.
+        </p>
+    </div>
+{% endblock %}

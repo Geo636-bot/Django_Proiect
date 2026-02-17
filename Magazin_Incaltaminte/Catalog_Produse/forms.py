@@ -1,7 +1,8 @@
 from datetime import date
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import Categorie, Brand, Material,Produs
+from django.contrib.auth.forms import UserCreationForm,AuthenticationForm
+from .models import Categorie, Brand, Material,Produs,CustomUser
 import re
 
 class FiltruProduseForm(forms.Form):
@@ -405,3 +406,61 @@ class ProdusForm(forms.ModelForm):
                 )
 
         return cleaned_data
+    
+    
+class InregistrareForm(UserCreationForm):
+    # Suprascriem data_nasterii pentru a folosi widget-ul de calendar html5
+    data_nasterii = forms.DateField(
+        widget=forms.DateInput(attrs={'type': 'date'}),
+        required=True,
+        label="Data nașterii"
+    )
+
+    class Meta(UserCreationForm.Meta):
+        model = CustomUser
+        # Includem câmpurile implicite pe care le dorim + cele 5 create de noi
+        fields = UserCreationForm.Meta.fields + (
+            'first_name', 'last_name', 'email', 
+            'telefon', 'adresa', 'judet', 'cnp', 'data_nasterii'
+        )
+
+    # --- VALIDĂRI PENTRU MINIM 3 DIN CELE 5 CÂMPURI ---
+
+    # Validarea 1: Telefonul să conțină doar cifre și să aibă minim 10 caractere
+    def clean_telefon(self):
+        telefon = self.cleaned_data.get('telefon')
+        if telefon:
+            if not telefon.isdigit():
+                raise ValidationError("Numărul de telefon trebuie să conțină exclusiv cifre.")
+            if len(telefon) < 10:
+                raise ValidationError("Numărul de telefon este prea scurt (minim 10 cifre).")
+        return telefon
+
+    # Validarea 2: CNP-ul să aibă fix 13 caractere și să conțină doar cifre
+    def clean_cnp(self):
+        cnp = self.cleaned_data.get('cnp')
+        if cnp:
+            if not cnp.isdigit():
+                raise ValidationError("CNP-ul trebuie să conțină doar cifre.")
+            if len(cnp) != 13:
+                raise ValidationError(f"CNP-ul trebuie să aibă exact 13 cifre (tu ai introdus {len(cnp)}).")
+        return cnp
+
+    # Validarea 3: Utilizatorul trebuie să fie major
+    def clean_data_nasterii(self):
+        data = self.cleaned_data.get('data_nasterii')
+        if data:
+            azi = date.today()
+            varsta = azi.year - data.year - ((azi.month, azi.day) < (data.month, data.day))
+            if varsta < 18:
+                raise ValidationError("Trebuie să ai minim 18 ani pentru a te putea înregistra pe platformă.")
+        return data
+    
+    
+
+class CustomLoginForm(AuthenticationForm):
+    ramai_logat = forms.BooleanField(
+        required=False, 
+        label="Păstrează-mă logat pe site (24 ore)",
+        widget=forms.CheckboxInput(attrs={'class': 'checkbox-custom'})
+    )
