@@ -19,21 +19,42 @@
     {% else %}
         <h1>Catalog Complet Produse</h1>
     {% endif %}
+    <div style="background-color: #f1f1f1; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
+        <h3 style="margin-top: 0; border-bottom: 2px solid #ccc; padding-bottom: 10px;">Filtrează Produsele</h3>
+        
+        <form method="GET" action="{% url 'produse' %}">
+
+            {% if sort_param %}
+                <input type="hidden" name="sort" value="{{ sort_param }}">
+            {% endif %}
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;">
+                {{ form.as_p }}
+            </div>
+            
+            <div style="margin-top: 20px; text-align: right;">
+                <button type="submit" style="background-color: #004d99; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
+                    Aplică Filtrele
+                </button>
+                <a href="{% url 'produse' %}" style="margin-left: 10px; color: #cc0000; text-decoration: none;">Resetează filtrele</a>
+            </div>
+        </form>
+    </div>
     <div style="margin-bottom: 25px; padding: 10px; background-color: #eee; border-radius: 5px;">
         <strong style="margin-right: 15px;">Sortează după preț:</strong>
         
-        <a href="?sort=a" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; border: 1px solid #ccc; 
+        <a href="?{{ url_sortare }}&sort=a" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; border: 1px solid #ccc; 
             {% if sort_param == 'a' %}background-color: #004d99; color: white;{% else %}background-color: white; color: black;{% endif %}">
             Crescător
         </a>
         
-        <a href="?sort=d" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; border: 1px solid #ccc; margin-left: 10px;
+        <a href="?{{ url_sortare }}&sort=d" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; border: 1px solid #ccc; margin-left: 10px;
             {% if sort_param == 'd' %}background-color: #004d99; color: white;{% else %}background-color: white; color: black;{% endif %}">
             Descrescător
         </a>
         
         <a href="{% url 'produse' %}" style="text-decoration: none; padding: 5px 10px; border-radius: 3px; margin-left: 10px; color: #666;">
-            Resetează
+            Resetează tot
         </a>
     </div>
 
@@ -64,15 +85,20 @@
                 </p>
             </div>
         {% empty %}
-            <p>Nu există produse momentan în magazin.</p>
+            <div style="background-color: #fff0f0; border: 1px solid #cc0000; padding: 25px; text-align: center; border-radius: 8px;">
+                <i class="fa-solid fa-face-frown" style="font-size: 3em; color: #cc0000; margin-bottom: 15px;"></i>
+                <h2 style="color: #cc0000; margin-top: 0;">Ne pare rău!</h2>
+                <p style="font-size: 1.1em; color: #333;">Niciun produs nu corespunde criteriilor tale de filtrare.</p>
+                <p>Încearcă să ștergi din filtre (de exemplu, un preț maxim mai mare) sau apasă butonul "Resetează filtrele".</p>
+            </div>
         {% endfor %}
     </div>
 
     <div style="margin-top: 30px; text-align: center; font-weight: bold;">
         <span class="step-links">
             {% if page_obj.has_previous %}
-                <a href="?page=1{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">&laquo; prima</a>
-                <a href="?page={{ page_obj.previous_page_number }}{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">anterioara</a>
+                <a href="?{{ url_paginare }}&page=1" style="padding: 5px 10px; background: #eee; text-decoration: none;">&laquo; prima</a>
+                <a href="?{{ url_paginare }}&page={{ page_obj.previous_page_number }}" style="padding: 5px 10px; background: #eee; text-decoration: none;">anterioara</a>
             {% endif %}
 
             <span class="current" style="padding: 5px 10px;">
@@ -80,8 +106,8 @@
             </span>
 
             {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">urmatoarea</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}{% if sort_param %}&sort={{ sort_param }}{% endif %}" style="padding: 5px 10px; background: #eee; text-decoration: none;">ultima &raquo;</a>
+                <a href="?{{ url_paginare }}&page={{ page_obj.next_page_number }}" style="padding: 5px 10px; background: #eee; text-decoration: none;">urmatoarea</a>
+                <a href="?{{ url_paginare }}&page={{ page_obj.paginator.num_pages }}" style="padding: 5px 10px; background: #eee; text-decoration: none;">ultima &raquo;</a>
             {% endif %}
         </span>
     </div>

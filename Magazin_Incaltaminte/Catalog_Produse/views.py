@@ -4,6 +4,7 @@ from collections import Counter
 from django.core.paginator import Paginator
 from .models import Produs, Categorie
 from django.http import HttpResponse
+from .forms import FiltruProduseForm
 
 LUNI = [
     "", 
@@ -388,32 +389,95 @@ def log(request):
     return HttpResponse(response_html)
 
 def produse_view(request):
-    """Afișează toate produsele cu paginare și sortare."""
+    """Afișează produsele cu paginare, sortare și FILTRARE avansată."""
     
-    # 1. Preluăm parametrul de sortare din URL (ex: ?sort=a)
-    sort_param = request.GET.get('sort')
-    
-    # 2. Începem cu toate produsele
+    # 1. Inițializăm lista cu toate produsele
     lista_produse = Produs.objects.all()
     
-    # 3. Aplicăm sortarea în funcție de parametrul primit
-    if sort_param == 'a':
-        lista_produse = lista_produse.order_by('pret')      # Crescător (Ascendent)
-    elif sort_param == 'd':
-        lista_produse = lista_produse.order_by('-pret')     # Descrescător (Descendent)
-    else:
-        lista_produse = lista_produse.order_by('-data_adaugarii') # Implicit (Cele mai noi primele)
-        sort_param = '' # Resetăm pentru a nu avea erori în template
+    # 2. Instanțiem formularul cu datele din cererea GET
+    form = FiltruProduseForm(request.GET)
+    
+    # 3. Dacă formularul este valid, extragem datele și aplicăm filtrele rând pe rând
+    if form.is_valid():
+        nume = form.cleaned_data.get('nume')
+        descriere = form.cleaned_data.get('descriere')
+        pret_min = form.cleaned_data.get('pret_min')
+        pret_max = form.cleaned_data.get('pret_max')
+        greutate_min = form.cleaned_data.get('greutate_min')
+        greutate_max = form.cleaned_data.get('greutate_max')
+        culoare_principala = form.cleaned_data.get('culoare_principala')
+        in_stoc = form.cleaned_data.get('in_stoc')
+        categorie = form.cleaned_data.get('categorie')
+        brand = form.cleaned_data.get('brand')
+        material = form.cleaned_data.get('material')
         
-    # 4. Paginarea (5 produse pe pagină)
+        # Aplicăm filtrele (folosim icontains pentru o potrivire parțială și insensibilă la majuscule)
+        if nume:
+            lista_produse = lista_produse.filter(nume__icontains=nume)
+        if descriere:
+            lista_produse = lista_produse.filter(descriere__icontains=descriere)
+        if culoare_principala:
+            lista_produse = lista_produse.filter(culoare_principala__icontains=culoare_principala)
+            
+        # Filtre de minim/maxim
+        if pret_min is not None:
+            lista_produse = lista_produse.filter(pret__gte=pret_min) # gte = Greater Than or Equal
+        if pret_max is not None:
+            lista_produse = lista_produse.filter(pret__lte=pret_max) # lte = Less Than or Equal
+        if greutate_min is not None:
+            lista_produse = lista_produse.filter(greutate__gte=greutate_min)
+        if greutate_max is not None:
+            lista_produse = lista_produse.filter(greutate__lte=greutate_max)
+            
+        # Filtre exacte
+        if in_stoc == '1':
+            lista_produse = lista_produse.filter(in_stoc=True)
+        elif in_stoc == '0':
+            lista_produse = lista_produse.filter(in_stoc=False)
+            
+        # Filtre pentru relații (Foreign Keys)
+        if categorie:
+            lista_produse = lista_produse.filter(categorie=categorie)
+        if brand:
+            lista_produse = lista_produse.filter(brand=brand)
+        if material:
+            lista_produse = lista_produse.filter(material=material)
+
+    # 4. Păstrăm sortarea de dinainte
+    sort_param = request.GET.get('sort', '')
+    if sort_param == 'a':
+        lista_produse = lista_produse.order_by('pret')
+    elif sort_param == 'd':
+        lista_produse = lista_produse.order_by('-pret')
+    else:
+        lista_produse = lista_produse.order_by('-data_adaugarii')
+
+    # --- GENERARE URL-URI PENTRU A NU PIERDE FILTRELE / SORTAREA ---
+    # 1. Pentru paginare: Păstrăm tot (filtre+sortare), dar scoatem 'page' vechi
+    query_paginare = request.GET.copy()
+    if 'page' in query_paginare:
+        del query_paginare['page']
+    url_paginare = query_paginare.urlencode()
+
+    # 2. Pentru butoanele de sortare: Păstrăm filtrele, dar scoatem 'sort' și resetăm la pagina 1
+    query_sortare = request.GET.copy()
+    if 'sort' in query_sortare:
+        del query_sortare['sort']
+    if 'page' in query_sortare:
+        del query_sortare['page']
+    url_sortare = query_sortare.urlencode()
+
+    # --- PAGINARE ---
     paginator = Paginator(lista_produse, 5)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Trimitem și sort_param în context pentru a-l folosi la butoanele din HTML
     context = {
         'page_obj': page_obj,
-        'sort_param': sort_param
+        'sort_param': sort_param,
+        'form': form,
+        'url_paginare': url_paginare,
+        'url_sortare': url_sortare
     }
     return render(request, 'produse.html', context)
 
