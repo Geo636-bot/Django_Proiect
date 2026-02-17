@@ -12,12 +12,21 @@
             <i class="{{ categorie_curenta.icon_fontawesome }}"></i> 
             Produse din categoria: {{ categorie_curenta.nume_categorie }}
         </h1>
-        
         <div style="background-color: #f0f8ff; padding: 15px; border-left: 5px solid {{ categorie_curenta.culoare_cod }}; margin-bottom: 20px;">
             <p><strong>Detalii Categorie:</strong> Această secțiune conține exclusiv încălțăminte destinată genului <strong>{{ categorie_curenta.get_gen_tinta_display }}</strong>.</p>
         </div>
     {% else %}
         <h1>Catalog Complet Produse</h1>
+        {% if messages %}
+        <div style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div style="padding: 15px; background-color: #fff3cd; color: #856404; border: 1px solid #ffeeba; border-radius: 5px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                    <i class="fa-solid fa-triangle-exclamation" style="margin-right: 10px; color: #ffc107;"></i>
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
     {% endif %}
     <div style="background-color: #f1f1f1; padding: 20px; border-radius: 8px; margin-bottom: 30px;">
         <h3 style="margin-top: 0; border-bottom: 2px solid #ccc; padding-bottom: 10px;">Filtrează Produsele</h3>
@@ -36,7 +45,19 @@
                 <button type="submit" style="background-color: #004d99; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">
                     Aplică Filtrele
                 </button>
-                <a href="{% url 'produse' %}" style="margin-left: 10px; color: #cc0000; text-decoration: none;">Resetează filtrele</a>
+                {% if categorie_curenta %}
+                    <a href="{% url 'categorie_detaliu' categorie_curenta.nume_categorie %}" 
+                       onclick="return confirm('Atenție! Vei pierde toate filtrele aplicate. Ești sigur că vrei să continui?');" 
+                       style="margin-left: 15px; color: #cc0000; text-decoration: none; font-weight: bold; padding: 10px;">
+                       <i class="fa-solid fa-rotate-right"></i> Resetează filtrele
+                    </a>
+                {% else %}
+                    <a href="{% url 'produse' %}" 
+                       onclick="return confirm('Atenție! Vei pierde toate filtrele aplicate. Ești sigur că vrei să continui?');" 
+                       style="margin-left: 15px; color: #cc0000; text-decoration: none; font-weight: bold; padding: 10px;">
+                       <i class="fa-solid fa-rotate-right"></i> Resetează filtrele
+                    </a>
+                {% endif %}
             </div>
         </form>
     </div>

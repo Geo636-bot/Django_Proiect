@@ -1,0 +1,14 @@
+{
+    "nume": "Luca",
+    "prenume": "George",
+    "cnp": "5051024150442",
+    "email": "lucageo42@gmail.com",
+    "tip_mesaj": "reclamatie",
+    "subiect": "Dasadsa",
+    "minim_zile_asteptare": 2,
+    "mesaj": "dsadasd dsa das dsa dsa ad sa Luca",
+    "varsta": "20 ani și 3 luni",
+    "urgent": false,
+    "ip_utilizator": "127.0.0.1",
+    "data_ora_sosirii": "2026-02-17 11:50:20"
+}

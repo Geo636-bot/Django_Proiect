@@ -1,10 +1,18 @@
 import datetime
-from django.shortcuts import get_object_or_404
-from collections import Counter
+import re
+import time
+import os
+import json
+from datetime import date
+from django.conf import settings
+from django.shortcuts import get_object_or_404,render,redirect
 from django.core.paginator import Paginator
-from .models import Produs, Categorie
+from django import forms
 from django.http import HttpResponse
-from .forms import FiltruProduseForm
+from django.contrib import messages
+from .models import Produs, Categorie
+from collections import Counter
+from .forms import FiltruProduseForm,ContactForm,ProdusForm
 
 LUNI = [
     "", 
@@ -388,17 +396,20 @@ def log(request):
     
     return HttpResponse(response_html)
 
-def produse_view(request):
-    """Afișează produsele cu paginare, sortare și FILTRARE avansată."""
-    
-    # 1. Inițializăm lista cu toate produsele
+def produse_view(request):    
+    # 1. Lista inițială de produse
     lista_produse = Produs.objects.all()
-    
-    # 2. Instanțiem formularul cu datele din cererea GET
     form = FiltruProduseForm(request.GET)
     
-    # 3. Dacă formularul este valid, extragem datele și aplicăm filtrele rând pe rând
+    # 2. Setăm 5 ca valoare absolut implicită
+    items_pe_pagina = '5'
+    
+    # 3. Aplicăm filtrele dacă formularul e valid
     if form.is_valid():
+        # Prelucrăm numărul de item-uri pe pagină
+        if form.cleaned_data.get('items_pe_pagina'):
+            items_pe_pagina = form.cleaned_data.get('items_pe_pagina')
+            
         nume = form.cleaned_data.get('nume')
         descriere = form.cleaned_data.get('descriere')
         pret_min = form.cleaned_data.get('pret_min')
@@ -410,8 +421,9 @@ def produse_view(request):
         categorie = form.cleaned_data.get('categorie')
         brand = form.cleaned_data.get('brand')
         material = form.cleaned_data.get('material')
+        data_adaugarii_min = form.cleaned_data.get('data_adaugarii_min')
         
-        # Aplicăm filtrele (folosim icontains pentru o potrivire parțială și insensibilă la majuscule)
+        # Filtre text
         if nume:
             lista_produse = lista_produse.filter(nume__icontains=nume)
         if descriere:
@@ -419,23 +431,26 @@ def produse_view(request):
         if culoare_principala:
             lista_produse = lista_produse.filter(culoare_principala__icontains=culoare_principala)
             
-        # Filtre de minim/maxim
+        # Filtru dată
+        if data_adaugarii_min:
+            lista_produse = lista_produse.filter(data_adaugarii__gte=data_adaugarii_min)
+            
+        # Filtre de minim/maxim numerice
         if pret_min is not None:
-            lista_produse = lista_produse.filter(pret__gte=pret_min) # gte = Greater Than or Equal
+            lista_produse = lista_produse.filter(pret__gte=pret_min)
         if pret_max is not None:
-            lista_produse = lista_produse.filter(pret__lte=pret_max) # lte = Less Than or Equal
+            lista_produse = lista_produse.filter(pret__lte=pret_max)
         if greutate_min is not None:
             lista_produse = lista_produse.filter(greutate__gte=greutate_min)
         if greutate_max is not None:
             lista_produse = lista_produse.filter(greutate__lte=greutate_max)
             
-        # Filtre exacte
+        # Filtre exacte și relații
         if in_stoc == '1':
             lista_produse = lista_produse.filter(in_stoc=True)
         elif in_stoc == '0':
             lista_produse = lista_produse.filter(in_stoc=False)
             
-        # Filtre pentru relații (Foreign Keys)
         if categorie:
             lista_produse = lista_produse.filter(categorie=categorie)
         if brand:
@@ -443,7 +458,7 @@ def produse_view(request):
         if material:
             lista_produse = lista_produse.filter(material=material)
 
-    # 4. Păstrăm sortarea de dinainte
+    # 4. Aplicăm Sortarea
     sort_param = request.GET.get('sort', '')
     if sort_param == 'a':
         lista_produse = lista_produse.order_by('pret')
@@ -452,26 +467,44 @@ def produse_view(request):
     else:
         lista_produse = lista_produse.order_by('-data_adaugarii')
 
-    # --- GENERARE URL-URI PENTRU A NU PIERDE FILTRELE / SORTAREA ---
-    # 1. Pentru paginare: Păstrăm tot (filtre+sortare), dar scoatem 'page' vechi
+    # 5. --- LOGICA PENTRU MESAJUL DE REPAGINARE ---
+    items_anterior = request.session.get('items_pe_pagina_anterior')
+
+    # Dacă există o valoare anterioară salvată și e diferită de cea curentă, dăm avertisment
+    if items_anterior and items_anterior != items_pe_pagina:
+        messages.warning(
+            request, 
+            "Atenție: În urma repaginării este posibil să fi sărit peste unele produse sau să le vezi din nou pe cele deja vizualizate!"
+        )
+
+    # Salvăm în sesiune alegerea curentă pentru viitoarele refresh-uri/click-uri
+    request.session['items_pe_pagina_anterior'] = items_pe_pagina
+
+    # 6. --- GENERARE URL-URI PENTRU BUTOANELE DIN TEMPLATE ---
     query_paginare = request.GET.copy()
-    if 'page' in query_paginare:
+    if 'page' in query_paginare: 
         del query_paginare['page']
     url_paginare = query_paginare.urlencode()
 
-    # 2. Pentru butoanele de sortare: Păstrăm filtrele, dar scoatem 'sort' și resetăm la pagina 1
     query_sortare = request.GET.copy()
-    if 'sort' in query_sortare:
+    if 'sort' in query_sortare: 
         del query_sortare['sort']
-    if 'page' in query_sortare:
+    if 'page' in query_sortare: 
         del query_sortare['page']
     url_sortare = query_sortare.urlencode()
 
-    # --- PAGINARE ---
-    paginator = Paginator(lista_produse, 5)
+    # 7. --- PAGINARE FINALĂ ---
+    # Ne asigurăm că valoarea este integer. Dacă e goală sau invalidă, punem 5.
+    try:
+        items_int = int(items_pe_pagina)
+    except ValueError:
+        items_int = 5
+        
+    paginator = Paginator(lista_produse, items_int)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
+    # 8. Trimitem totul la template
     context = {
         'page_obj': page_obj,
         'sort_param': sort_param,
@@ -498,33 +531,237 @@ def produs_detaliu(request, id_produs):
 from django.shortcuts import render, get_object_or_404
 # ... restul importurilor tale
 
-def categorie_view(request, nume_categorie):
-    
-    # 1. Găsim categoria pe baza numelui din URL (sau dăm eroare 404 dacă nu există)
+def categorie_view(request, nume_categorie):    
+    # 1. Găsim categoria curentă din URL
     categorie_curenta = get_object_or_404(Categorie, nume_categorie=nume_categorie)
     
-    # 2. Filtrăm produsele CA SĂ LE AFIȘĂM DOAR PE CELE DIN ACEASTĂ CATEGORIE
+    # 2. Produsele de bază sunt STRICT cele din categoria curentă
     lista_produse = Produs.objects.filter(categorie=categorie_curenta)
     
-    # 3. Păstrăm funcționalitatea de sortare (opțional, dar recomandat)
-    sort_param = request.GET.get('sort')
-    if sort_param == 'a':
-        lista_produse = lista_produse.order_by('pret')
-    elif sort_param == 'd':
-        lista_produse = lista_produse.order_by('-pret')
-    else:
-        lista_produse = lista_produse.order_by('-data_adaugarii')
-        sort_param = ''
+    # 3. Inițializăm formularul
+    # Dacă este prima accesare (request.GET e gol), setăm valoarea inițială la categoria_curenta
+    form = FiltruProduseForm(request.GET or None, initial={'categorie': categorie_curenta})
+    
+    # --- AICI TRANSFORMĂM CÂMPUL PENTRU PAGINA DE CATEGORIE ---
+    # Îl facem Hidden (ascuns) și Readonly, exact cum ai cerut
+    form.fields['categorie'].widget = forms.HiddenInput(attrs={'readonly': 'readonly'})
+    
+    items_pe_pagina = request.GET.get('items_pe_pagina', '5')
+    
+    # Dacă utilizatorul a apăsat "Aplică Filtrele"
+    if request.GET and form.is_valid():
         
-    # 4. Paginarea (5 pe pagină)
-    paginator = Paginator(lista_produse, 5)
+        # 4. --- VERIFICAREA DE SECURITATE LA SERVER ---
+        categorie_selectata = form.cleaned_data.get('categorie')
+        
+        # Dacă a trimis o altă categorie din greșeală sau a modificat HTML-ul malițios:
+        if categorie_selectata and categorie_selectata != categorie_curenta:
+            # Afișăm eroarea
+            messages.error(
+                request, 
+                "Eroare de securitate: Nu este permisă modificarea categoriei pe această pagină!"
+            )
+            # Refuzăm să aplicăm restul filtrelor ca măsură de protecție
+        else:
+            # Dacă totul e sigur, extragem datele și aplicăm restul filtrelor
+            if form.cleaned_data.get('items_pe_pagina'):
+                items_pe_pagina = form.cleaned_data.get('items_pe_pagina')
+                
+            nume = form.cleaned_data.get('nume')
+            descriere = form.cleaned_data.get('descriere')
+            pret_min = form.cleaned_data.get('pret_min')
+            pret_max = form.cleaned_data.get('pret_max')
+            greutate_min = form.cleaned_data.get('greutate_min')
+            greutate_max = form.cleaned_data.get('greutate_max')
+            culoare_principala = form.cleaned_data.get('culoare_principala')
+            in_stoc = form.cleaned_data.get('in_stoc')
+            brand = form.cleaned_data.get('brand')
+            material = form.cleaned_data.get('material')
+            data_adaugarii_min = form.cleaned_data.get('data_adaugarii_min')
+            
+            # Aplicăm filtrele
+            if nume: lista_produse = lista_produse.filter(nume__icontains=nume)
+            if descriere: lista_produse = lista_produse.filter(descriere__icontains=descriere)
+            if culoare_principala: lista_produse = lista_produse.filter(culoare_principala__icontains=culoare_principala)
+            if data_adaugarii_min: lista_produse = lista_produse.filter(data_adaugarii__gte=data_adaugarii_min)
+            
+            if pret_min is not None: lista_produse = lista_produse.filter(pret__gte=pret_min)
+            if pret_max is not None: lista_produse = lista_produse.filter(pret__lte=pret_max)
+            if greutate_min is not None: lista_produse = lista_produse.filter(greutate__gte=greutate_min)
+            if greutate_max is not None: lista_produse = lista_produse.filter(greutate__lte=greutate_max)
+            
+            if in_stoc == '1': lista_produse = lista_produse.filter(in_stoc=True)
+            elif in_stoc == '0': lista_produse = lista_produse.filter(in_stoc=False)
+            
+            if brand: lista_produse = lista_produse.filter(brand=brand)
+            if material: lista_produse = lista_produse.filter(material=material)
+
+    # 5. Aplicăm Sortarea
+    sort_param = request.GET.get('sort', '')
+    if sort_param == 'a': lista_produse = lista_produse.order_by('pret')
+    elif sort_param == 'd': lista_produse = lista_produse.order_by('-pret')
+    else: lista_produse = lista_produse.order_by('-data_adaugarii')
+
+    # 6. Mesaj Repaginare (Preluat din rezolvarea anterioară)
+    items_anterior = request.session.get('items_pe_pagina_anterior')
+    if items_anterior and items_anterior != items_pe_pagina:
+        messages.warning(request, "Atenție: În urma repaginării este posibil să fi sărit peste unele produse sau să le vezi din nou pe cele deja vizualizate!")
+    request.session['items_pe_pagina_anterior'] = items_pe_pagina
+
+    # 7. Generare URL-uri pentru butoane
+    query_paginare = request.GET.copy()
+    if 'page' in query_paginare: del query_paginare['page']
+    url_paginare = query_paginare.urlencode()
+
+    query_sortare = request.GET.copy()
+    if 'sort' in query_sortare: del query_sortare['sort']
+    if 'page' in query_sortare: del query_sortare['page']
+    url_sortare = query_sortare.urlencode()
+
+    # 8. Paginare
+    try: items_int = int(items_pe_pagina)
+    except ValueError: items_int = 5
+        
+    paginator = Paginator(lista_produse, items_int)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
     
-    # Trimitem categoria curentă în context pentru a-i afișa detaliile în template
     context = {
         'categorie_curenta': categorie_curenta,
         'page_obj': page_obj,
-        'sort_param': sort_param
+        'sort_param': sort_param,
+        'form': form,
+        'url_paginare': url_paginare,
+        'url_sortare': url_sortare
     }
-    return render(request, 'produse.html', context) # REFOLOSIM TEMPLATE-UL!
+    return render(request, 'produse.html', context)
+
+def get_client_ip(request):
+    """Extrage IP-ul real al utilizatorului din request."""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0]
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+def contact_view(request):
+    """Gestionează afișarea, preprocesarea și salvarea formularului de contact."""
+    if request.method == 'POST':
+        form = ContactForm(request.POST)
+        
+        if form.is_valid():
+            # Facem o copie a datelor validate
+            date_formular = form.cleaned_data.copy()
+
+            # --- PREPROCESARE 1: Vârsta ---
+            data_n = date_formular['data_nasterii']
+            azi = date.today()
+            ani = azi.year - data_n.year - ((azi.month, azi.day) < (data_n.month, data_n.day))
+            
+            luni = azi.month - data_n.month
+            if azi.day < data_n.day: luni -= 1
+            if luni < 0: luni += 12
+                
+            date_formular['varsta'] = f"{ani} ani și {luni} luni"
+            del date_formular['data_nasterii']
+
+            # --- PREPROCESARE 2 & 3: Curățare text și Majuscule ---
+            mesaj_brut = date_formular['mesaj']
+            mesaj_curat = re.sub(r'\s+', ' ', mesaj_brut).strip()
+            
+            def capitalize_match(match):
+                punctuație = match.group(1)
+                litera = match.group(2)
+                return f"{punctuație} {litera.upper()}"
+            
+            mesaj_curat = re.sub(r'([.?!]+)\s+([a-zăâîșț])', capitalize_match, mesaj_curat)
+            date_formular['mesaj'] = mesaj_curat
+
+            # --- PREPROCESARE 4: Flag de urgență ---
+            tip = date_formular['tip_mesaj']
+            zile = date_formular['minim_zile_asteptare']
+            urgent = False
+            
+            if (tip in ['review', 'cerere'] and zile == 4) or (tip == 'intrebare' and zile == 2):
+                urgent = True
+                
+            date_formular['urgent'] = urgent
+
+            # --- PREGĂTIREA PENTRU SALVARE (Cerințele Noi) ---
+            
+            # 1. Eliminăm confirmarea de e-mail (nu ne trebuie în fișier)
+            if 'confirmare_email' in date_formular:
+                del date_formular['confirmare_email']
+                
+            # 2. Adăugăm datele despre utilizator (IP și Timp)
+            date_formular['ip_utilizator'] = get_client_ip(request)
+            date_formular['data_ora_sosirii'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # 3. Construim numele fișierului conform cerinței
+            timestamp_secunde = int(time.time()) # Numărul de secunde de la 1 Ian 1970
+            sufix = "_urgent" if urgent else ""
+            nume_fisier = f"mesaj_{timestamp_secunde}{sufix}.json"
+            
+            # 4. Creăm folderul "Mesaje" DIRECT în interiorul aplicației (Catalog_Produse)
+            # os.path.dirname(__file__) ia calea folderului unde se află views.py
+            folder_mesaje = os.path.join(os.path.dirname(__file__), 'Mesaje')
+            os.makedirs(folder_mesaje, exist_ok=True)
+            
+            cale_fisier = os.path.join(folder_mesaje, nume_fisier)
+            
+            # 5. Salvăm fișierul JSON
+            with open(cale_fisier, 'w', encoding='utf-8') as f:
+                json.dump(date_formular, f, ensure_ascii=False, indent=4)
+
+            # Afișăm succesul
+            messages.success(request, "Mesajul tău a fost preluat cu succes!")
+            form = ContactForm()
+            
+    else:
+        form = ContactForm()
+
+    return render(request, 'contact.html', {'form': form})
+
+def adauga_produs_view(request):
+    """Afișează formularul ModelForm și calculează valorile lipsă folosind commit=False."""
+    if request.method == 'POST':
+        form = ProdusForm(request.POST)
+        
+        if form.is_valid():
+            # --- CERINȚA: Salvare inițială cu commit=False ---
+            # Creăm instanța obiectului 'Produs' cu Nume, Descriere și Categorie, 
+            # dar OPRIM scrierea în baza de date.
+            produs_nou = form.save(commit=False)
+            
+            # Preluăm datele din câmpurile adiționale (cele care nu există în baza de date)
+            pret_furnizor = form.cleaned_data.get('pret_furnizor')
+            adaos = form.cleaned_data.get('adaos_procent')
+            g_stang = form.cleaned_data.get('greutate_stang')
+            g_drept = form.cleaned_data.get('greutate_drept')
+            
+            # PROCESĂM DATELE (Calculăm coloanele lipsă)
+            # 1. Calculăm prețul final
+            produs_nou.pret = pret_furnizor + (pret_furnizor * (adaos / 100))
+            
+            # 2. Calculăm greutatea totală (pantofi + 150g cutia)
+            produs_nou.greutate = g_stang + g_drept + 150
+            
+            # 3. Opțional, punem produsul pe stoc implicit
+            produs_nou.in_stoc = True
+            
+            # --- SALVAREA DEFINITIVĂ ---
+            # Acum că produsul are TOATE coloanele obligatorii completate, îl salvăm!
+            produs_nou.save()
+            
+            # Mesaj de confirmare
+            messages.success(
+                request, 
+                f"Produsul '{produs_nou.nume}' a fost adăugat cu succes! Preț final: {produs_nou.pret:.2f} RON."
+            )
+            return redirect('produse') # Trimitem utilizatorul înapoi la lista de produse
+            
+    else:
+        form = ProdusForm()
+        
+    return render(request, 'adauga_produs.html', {'form': form})
