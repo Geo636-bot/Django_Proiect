@@ -75,6 +75,7 @@ DJANGO_PROIECT/
             ├── baza.html                 # Template-ul de bază (Header, Footer, Meniu)
             ├── index.html                # Prima pagină (Acasă)
             ├── produse.html              # [NOU] Catalogul cu filtre, sortare și paginare
+            ├── produs.html               # Pagină specifică pentru un produs anume
             ├── contact.html              # [NOU] Formularul de contact cu afișare erori integrate
             ├── adauga_produs.html        # [NOU] Interfața de adăugare produse noi
             ├── toate_categoriile.html    # [NOU] Lista vizuală a categoriilor
